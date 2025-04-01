@@ -1,6 +1,5 @@
-kafka-python==2.0.2       # Para interactuar con Kafka
-requests==2.31.0          # Para obtener datos de las APIs
-pandas==2.2.1             # Para manejar datos
-streamlit==1.23.0         # Para el dashboard
-plotly==5.14.1            # Para gráficos interactivos (incluye velas)
-matplotlib==3.7.1         
+kafka-python
+websocket-client
+requests
+matplotlib
+mplfinance

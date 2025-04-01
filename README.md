@@ -68,10 +68,8 @@ Esta versión inicial (`v0.1.0`) cumple con los requisitos básicos de la práct
 1. Asegúrate de que Zookeeper y Kafka estén corriendo.
 2. Ejecuta el productor en una terminal:
    ```bash
-   python producer.pyUnauthorized error (HTTP 401 Unauthorized)
-
-python producer.py
-   ```
+   python producer.py
+   
 3. Ejecuta el consumidor en otra terminal para visualizar los datos:
    ```bash
    python consumer.py

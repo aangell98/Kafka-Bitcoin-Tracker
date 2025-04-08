@@ -3,7 +3,7 @@ from kafka import KafkaConsumer
 import threading
 import queue
 from datetime import datetime, timedelta
-import requests  # Para obtener datos históricos
+import requests
 import dash
 from dash import dcc, html
 from dash.dependencies import Output, Input
@@ -25,13 +25,9 @@ consumer = KafkaConsumer(
     value_deserializer=lambda x: json.loads(x.decode('utf-8'))
 )
 
-# Función para obtener datos históricos (ejemplo con CryptoCompare)
+# Obtener datos históricos (ejemplo con CryptoCompare)
 def get_historical_data():
-    """
-    Obtiene datos históricos de precios de Bitcoin (hasta 10,000 minutos si es posible).
-    Devuelve una lista de tuplas (timestamp, price).
-    """
-    url = "https://min-api.cryptocompare.com/data/v2/histominute?fsym=BTC&tsym=USD&limit=2000"  # Ajusta el límite según necesidades
+    url = "https://min-api.cryptocompare.com/data/v2/histominute?fsym=BTC&tsym=USD&limit=2000"
     response = requests.get(url)
     data = response.json()
     if data['Response'] != 'Success':
@@ -40,12 +36,8 @@ def get_historical_data():
     hist_data = data['Data']['Data']
     return [(datetime.fromtimestamp(entry['time']), entry['close']) for entry in hist_data]
 
-# Función para procesar datos históricos en velas
+# Procesar datos históricos en velas
 def process_historical_candles(historical_prices):
-    """
-    Convierte datos históricos de precios en velas de 5 minutos.
-    Devuelve una lista de tuplas (timestamp, open, high, low, close).
-    """
     candles = []
     current = None
     for timestamp, price in sorted(historical_prices):
@@ -79,17 +71,19 @@ def process_historical_candles(historical_prices):
             current['low'],
             current['close']
         ))
-    return candles[:MAX_POINTS]  # Limitar a 10,000 velas
+    return candles[:MAX_POINTS]
 
 # Cargar datos históricos al inicio
 historical_prices = get_historical_data()
-price_data.extend(historical_prices[-MAX_POINTS:])  # Limitar a 10,000 puntos más recientes
-candle_data.extend(process_historical_candles(historical_prices)[-MAX_POINTS:])  # Limitar a 10,000 velas
+price_data.extend(historical_prices[-MAX_POINTS:])
+candle_data.extend(process_historical_candles(historical_prices)[-MAX_POINTS:])
 
+# Leer datos de Kafka
 def read_kafka():
     for message in consumer:
         data_queue.put(message.value)
 
+# Procesar datos en tiempo real
 def process_data():
     global current_candle
     while True:
@@ -129,7 +123,7 @@ def process_data():
                 current_candle['low'] = min(current_candle['low'], price)
                 current_candle['close'] = price
 
-# Iniciar hilos de Kafka y procesamiento
+# Iniciar hilos
 threading.Thread(target=read_kafka, daemon=True).start()
 threading.Thread(target=process_data, daemon=True).start()
 
@@ -137,43 +131,46 @@ threading.Thread(target=process_data, daemon=True).start()
 app = dash.Dash(__name__)
 app.title = "Bitcoin en tiempo real"
 
+# Layout con figuras iniciales vacías
 app.layout = html.Div([
     html.H1("Bitcoin en tiempo real"),
-    dcc.Graph(id='line-chart'),
-    dcc.Graph(id='candlestick-chart'),
+    dcc.Graph(id='line-chart', figure=go.Figure([go.Scatter(x=[], y=[], mode='lines')])),
+    dcc.Graph(id='candlestick-chart', figure=go.Figure([go.Candlestick(x=[], open=[], high=[], low=[], close=[])])),
     dcc.Interval(
         id='interval-component',
-        interval=1000,  # Actualiza cada 1000ms
+        interval=1000,  # Actualiza cada 1 segundo
         n_intervals=0
     )
 ])
 
+# Callback para actualizar solo los datos
 @app.callback(
-    Output('line-chart', 'figure'),
-    Output('candlestick-chart', 'figure'),
+    [Output('line-chart', 'extendData'), Output('candlestick-chart', 'extendData')],
     Input('interval-component', 'n_intervals')
 )
 def update_graphs(n):
-    line_fig = go.Figure()
+    # Datos para el gráfico lineal
     if price_data:
         timestamps, prices = zip(*price_data)
-        line_fig.add_trace(go.Scatter(x=timestamps, y=prices, mode='lines', name='Precio'))
-        line_fig.update_layout(title='Precio en tiempo real', yaxis_title='USD')
+        line_data = dict(x=[list(timestamps)], y=[list(prices)])
+    else:
+        line_data = dict(x=[[]], y=[[]])
 
-    candle_fig = go.Figure()
+    # Datos para el gráfico de velas
     if candle_data:
         timestamps, opens, highs, lows, closes = zip(*candle_data)
-        candle_fig.add_trace(go.Candlestick(
-            x=timestamps,
-            open=opens,
-            high=highs,
-            low=lows,
-            close=closes,
-            name='Velas'
-        ))
-        candle_fig.update_layout(title='Velas de 5 minutos', yaxis_title='USD')
+        candle_data_dict = dict(
+            x=[list(timestamps)],
+            open=[list(opens)],
+            high=[list(highs)],
+            low=[list(lows)],
+            close=[list(closes)]
+        )
+    else:
+        candle_data_dict = dict(x=[[]], open=[[]], high=[[]], low=[[]], close=[[]])
 
-    return line_fig, candle_fig
+    # Actualizar solo los datos de las trazas
+    return (line_data, [0]), (candle_data_dict, [0])
 
 if __name__ == '__main__':
     app.run(debug=True)

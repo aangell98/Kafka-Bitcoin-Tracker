@@ -1,117 +1,191 @@
 import json
+import plotly.graph_objects as go
+import requests
+from datetime import datetime, timedelta
 import time
-from kafka import KafkaConsumer
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from mplfinance.original_flavor import candlestick_ohlc
-from matplotlib.animation import FuncAnimation
-from collections import deque
 import threading
 import queue
-from datetime import datetime, timedelta
+from kafka import KafkaConsumer
+import pandas as pd
 
 # Configuración del consumidor Kafka
 consumer = KafkaConsumer('BitcoinData',
-                        bootstrap_servers='localhost:9092',
-                        auto_offset_reset='latest',
-                        value_deserializer=lambda x: json.loads(x.decode('utf-8')))
+                         bootstrap_servers='localhost:9092',
+                         auto_offset_reset='latest',
+                         value_deserializer=lambda x: json.loads(x.decode('utf-8')))
 
-# Variables y colas para datos
+# Cola para datos en tiempo real
 data_queue = queue.Queue()
-interval = 60  # Intervalo de 1 minuto en segundos
-current_interval_start = None
-prices_in_interval = []
-ohlc_data = deque(maxlen=10000 // interval)  # Velas completas
-hash_rate_data = deque(maxlen=10000 // interval)
-current_ohlc = None  # Vela en formación
+
+# Variables globales
+all_data = pd.DataFrame(columns=['time', 'open', 'high', 'low', 'close'])
+current_filter = "day"  # Filtro inicial
+fig = go.Figure()  # Gráfico inicial
+
+# Obtener datos históricos diarios (hasta 2000 días)
+def get_historical_daily_data():
+    url = "https://min-api.cryptocompare.com/data/v2/histoday?fsym=BTC&tsym=USD&limit=2000"
+    response = requests.get(url)
+    data = response.json()
+    if data['Response'] != 'Success':
+        print(f"Error al obtener datos históricos: {data['Message']}")
+        return pd.DataFrame()
+    hist_data = data['Data']['Data']
+    df = pd.DataFrame(hist_data)
+    df['time'] = pd.to_datetime(df['time'], unit='s')
+    return df[['time', 'open', 'high', 'low', 'close']]
+
+# Obtener datos históricos por hora (últimas 24 horas)
+def get_historical_hourly_data():
+    url = "https://min-api.cryptocompare.com/data/v2/histohour?fsym=BTC&tsym=USD&limit=24"
+    response = requests.get(url)
+    data = response.json()
+    if data['Response'] != 'Success':
+        print(f"Error al obtener datos por hora: {data['Message']}")
+        return pd.DataFrame()
+    hist_data = data['Data']['Data']
+    df = pd.DataFrame(hist_data)
+    df['time'] = pd.to_datetime(df['time'], unit='s')
+    return df[['time', 'open', 'high', 'low', 'close']]
+
+# Procesar datos en tiempo real y gestionar el cierre de velas
+def process_real_time_data():
+    global all_data
+    current_candle = None
+    while True:
+        if not data_queue.empty():
+            data = data_queue.get()
+            timestamp = datetime.fromisoformat(data['timestamp'].replace('Z', '+00:00')).replace(tzinfo=None)
+            price = data['price']
+
+            # Determinar el intervalo según el filtro activo
+            if current_filter == "hour":
+                interval = timedelta(hours=1)
+            elif current_filter == "day":
+                interval = timedelta(days=1)
+            elif current_filter == "week":
+                interval = timedelta(weeks=1)
+            elif current_filter == "month":
+                interval = timedelta(days=30)  # Aproximación para un mes
+            else:
+                interval = timedelta(days=1)
+
+            # Iniciar una nueva vela si no hay una actual o si el tiempo supera el intervalo
+            if current_candle is None or timestamp >= current_candle['end_time']:
+                if current_candle:
+                    # Añadir la vela completada a los datos históricos
+                    new_row = pd.DataFrame({
+                        'time': [current_candle['start_time']],
+                        'open': [current_candle['open']],
+                        'high': [current_candle['high']],
+                        'low': [current_candle['low']],
+                        'close': [current_candle['close']]
+                    })
+                    all_data = pd.concat([all_data, new_row]).sort_values('time').reset_index(drop=True)
+                # Iniciar una nueva vela
+                start_time = timestamp.replace(second=0, microsecond=0)
+                end_time = start_time + interval
+                current_candle = {
+                    'start_time': start_time,
+                    'end_time': end_time,
+                    'open': price,
+                    'high': price,
+                    'low': price,
+                    'close': price
+                }
+            else:
+                # Actualizar la vela en formación
+                current_candle['high'] = max(current_candle['high'], price)
+                current_candle['low'] = min(current_candle['low'], price)
+                current_candle['close'] = price
+        time.sleep(0.1)
 
 # Leer mensajes de Kafka
 def read_kafka():
     for message in consumer:
         data_queue.put(message.value)
 
-# Procesar datos y calcular OHLC
-def process_data():
-    global current_interval_start, prices_in_interval, ohlc_data, hash_rate_data, current_ohlc
-    while True:
-        if not data_queue.empty():
-            data = data_queue.get()
-            timestamp = datetime.fromisoformat(data['timestamp'])
-            price = data['price']
-            hash_rate = data['hash_rate']
-            
-            if current_interval_start is None:
-                # Iniciar el primer intervalo
-                current_interval_start = timestamp.replace(second=0, microsecond=0)
-                prices_in_interval = [price]
-                current_ohlc = [mdates.date2num(current_interval_start), price, price, price, price]
-            else:
-                # Verificar si el precio pertenece al intervalo actual
-                if timestamp < current_interval_start + timedelta(seconds=interval):
-                    prices_in_interval.append(price)
-                    # Actualizar la vela en formación
-                    current_ohlc[1] = prices_in_interval[0]  # Open (primer precio)
-                    current_ohlc[2] = max(prices_in_interval)  # High (máximo)
-                    current_ohlc[3] = min(prices_in_interval)  # Low (mínimo)
-                    current_ohlc[4] = prices_in_interval[-1]  # Close (último precio)
-                else:
-                    # Finalizar la vela actual y empezar una nueva
-                    if prices_in_interval:
-                        ohlc_data.append(tuple(current_ohlc))
-                        hash_rate_data.append((mdates.date2num(current_interval_start), hash_rate))
-                    current_interval_start = timestamp.replace(second=0, microsecond=0)
-                    prices_in_interval = [price]
-                    current_ohlc = [mdates.date2num(current_interval_start), price, price, price, price]
-        time.sleep(0.1)
+# Actualizar los datos del gráfico según el filtro
+def update_plot():
+    global all_data, current_filter
+    df = all_data.copy()
 
-# Configuración de la gráfica
-fig, ax1 = plt.subplots(figsize=(12, 6))
-ax2 = ax1.twinx()
+    if not df.empty:
+        df.set_index('time', inplace=True)
+        if current_filter == "hour":
+            df_resampled = df.resample('1H').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'}).dropna()
+        elif current_filter == "day":
+            df_resampled = df.resample('1D').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'}).dropna()
+        elif current_filter == "week":
+            df_resampled = df.resample('1W').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'}).dropna()
+        elif current_filter == "month":
+            df_resampled = df.resample('1M').agg({'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'}).dropna()
+        else:
+            df_resampled = df
+        df_resampled = df_resampled.reset_index()
 
-ax1.set_xlabel('Tiempo')
-ax1.set_ylabel('Precio (USD)', color='tab:blue')
-ax2.set_ylabel('Hash Rate (EH/s)', color='tab:red')
+        # Actualizar los datos del gráfico existente
+        with fig.batch_update():
+            fig.data[0].x = df_resampled['time']
+            fig.data[0].open = df_resampled['open']
+            fig.data[0].high = df_resampled['high']
+            fig.data[0].low = df_resampled['low']
+            fig.data[0].close = df_resampled['close']
+            fig.update_layout(title=f"Bitcoin - {current_filter.capitalize()}")
 
-# Actualizar la gráfica
-def update(frame):
-    ax1.clear()
-    ax2.clear()
-    
-    # Mostrar velas completas
-    if ohlc_data:
-        candlestick_ohlc(ax1, ohlc_data, width=0.0005, colorup='g', colordown='r')
-    
-    # Mostrar la vela en formación (con menor opacidad para distinguirla)
-    if current_ohlc:
-        candlestick_ohlc(ax1, [current_ohlc], width=0.0005, colorup='g', colordown='r', alpha=0.5)
-    
-    # Mostrar hash rate
-    if hash_rate_data:
-        dates, rates = zip(*hash_rate_data)
-        ax2.plot(dates, rates, 'r-', label='Hash Rate')
-    
-    # Ajustar límites y formato del eje X
-    if ohlc_data or current_ohlc:
-        all_dates = [d[0] for d in ohlc_data] + ([current_ohlc[0]] if current_ohlc else [])
-        ax1.set_xlim(min(all_dates) - 0.001, max(all_dates) + 0.001)
-        ax1.xaxis_date()
-        ax1.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-    
-    # Configurar etiquetas y leyendas
-    ax1.set_ylabel('Precio (USD)', color='tab:blue')
-    ax2.set_ylabel('Hash Rate (EH/s)', color='tab:red')
-    ax1.legend(['Precio'], loc='upper left')
-    ax2.legend(['Hash Rate'], loc='upper right')
+# Cargar datos históricos iniciales
+all_data = pd.concat([get_historical_daily_data(), get_historical_hourly_data()]).drop_duplicates(subset='time')
+
+# Crear el gráfico inicial con botones
+fig = go.Figure(data=[go.Candlestick(
+    x=all_data['time'],
+    open=all_data['open'],
+    high=all_data['high'],
+    low=all_data['low'],
+    close=all_data['close'],
+    name='Velas'
+)])
+
+fig.update_layout(
+    title=f"Bitcoin - {current_filter.capitalize()}",
+    xaxis_title="Tiempo",
+    yaxis_title="Precio (USD)",
+    xaxis_rangeslider_visible=False,
+    dragmode='zoom',
+    updatemenus=[dict(
+        type="buttons",
+        direction="right",
+        x=0.05,
+        y=1.2,
+        buttons=[
+            dict(label="Hora", method="update", args=[{"visible": [True]}, {"title": "Bitcoin - Hora"}]),
+            dict(label="Día", method="update", args=[{"visible": [True]}, {"title": "Bitcoin - Día"}]),
+            dict(label="Semana", method="update", args=[{"visible": [True]}, {"title": "Bitcoin - Semana"}]),
+            dict(label="Mes", method="update", args=[{"visible": [True]}, {"title": "Bitcoin - Mes"}]),
+        ],
+        active=1  # Día como filtro predeterminado
+    )]
+)
+
+# Mostrar el gráfico una sola vez
+fig.show()
 
 # Iniciar hilos
-kafka_thread = threading.Thread(target=read_kafka)
-kafka_thread.daemon = True
+kafka_thread = threading.Thread(target=read_kafka, daemon=True)
 kafka_thread.start()
 
-process_thread = threading.Thread(target=process_data)
-process_thread.daemon = True
+process_thread = threading.Thread(target=process_real_time_data, daemon=True)
 process_thread.start()
 
-# Animación para actualizar la gráfica cada segundo
-ani = FuncAnimation(fig, update, interval=1000, cache_frame_data=False)
-plt.show()
+# Función para animar el gráfico
+def animate():
+    while True:
+        update_plot()
+        time.sleep(1)  # Actualizar cada segundo
+
+animate_thread = threading.Thread(target=animate, daemon=True)
+animate_thread.start()
+
+# Mantener el programa en ejecución
+while True:
+    time.sleep(1)

@@ -5,15 +5,22 @@ import threading
 import requests
 from kafka import KafkaProducer
 from datetime import datetime
+import pytz
+
+# Configuración de zona horaria local
+local_timezone = pytz.timezone("Europe/Madrid")
 
 # Configuración del productor Kafka
-producer = KafkaProducer(bootstrap_servers='localhost:9092',
-                        value_serializer=lambda v: json.dumps(v).encode('utf-8'))
+producer = KafkaProducer(
+    bootstrap_servers='localhost:9092',
+    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+)
 
 # Variables globales
 latest_price = 0.0
 latest_hash_rate = 0.0  # En EH/s
 websocket_connected = False
+latest_price_timestamp = None
 
 # Función para obtener el hash rate cada 60 segundos
 def update_hash_rate():
@@ -23,18 +30,21 @@ def update_hash_rate():
             response = requests.get("https://api.blockchain.info/stats")
             data = response.json()
             latest_hash_rate = data["hash_rate"] / 1e18  # Convertir a EH/s
-            print(f"Hash rate actualizado: {latest_hash_rate} EH/s")
+            print(f"[{datetime.now(local_timezone).isoformat()}] Hash rate actualizado: {latest_hash_rate} EH/s")
         except Exception as e:
             print(f"Error al obtener hash rate: {e}")
         time.sleep(60)
 
 # Manejar mensajes del WebSocket de Binance
 def on_message(ws, message):
-    global latest_price
+    global latest_price, latest_price_timestamp
     try:
         data = json.loads(message)
-        latest_price = float(data.get("c", latest_price))  # "c" es el precio de cierre en Binance
-        print(f"Precio recibido: {latest_price} USD")
+        price = float(data.get("c", latest_price))  # "c" es el precio de cierre en Binance
+        if price != latest_price:
+            latest_price = price
+            latest_price_timestamp = datetime.now(local_timezone)
+            print(f"[{latest_price_timestamp.isoformat()}] Precio actualizado: {latest_price} USD")
     except Exception as e:
         print(f"Error al procesar mensaje: {e}")
 
@@ -59,11 +69,13 @@ def run_websocket():
     while True:
         if not websocket_connected:
             try:
-                ws = websocket.WebSocketApp("wss://stream.binance.com:9443/ws/btcusdt@ticker",
-                                            on_message=on_message,
-                                            on_error=on_error,
-                                            on_close=on_close,
-                                            on_open=on_open)
+                ws = websocket.WebSocketApp(
+                    "wss://stream.binance.com:9443/ws/btcusdt@ticker",
+                    on_message=on_message,
+                    on_error=on_error,
+                    on_close=on_close,
+                    on_open=on_open
+                )
                 ws_thread = threading.Thread(target=ws.run_forever)
                 ws_thread.daemon = True
                 ws_thread.start()
@@ -77,14 +89,14 @@ def run_websocket():
 def send_to_kafka():
     global latest_price, latest_hash_rate
     while True:
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.now(local_timezone).isoformat()
         message = {
             "timestamp": timestamp,
             "price": latest_price,
             "hash_rate": latest_hash_rate
         }
         producer.send('BitcoinData', message)
-        print(f"Enviado: {message}")
+        print(f"[{timestamp}] Enviado: {message}")
         time.sleep(1)
 
 # Iniciar hilos

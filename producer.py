@@ -29,8 +29,8 @@ def update_hash_rate():
         try:
             response = requests.get("https://api.blockchain.info/stats")
             data = response.json()
-            latest_hash_rate = data["hash_rate"] / 1e18  # Convertir a EH/s
-            print(f"[{datetime.now(local_timezone).isoformat()}] Hash rate actualizado: {latest_hash_rate} EH/s")
+            latest_hash_rate = data["hash_rate"]
+            print(f"[{datetime.now(local_timezone).isoformat()}] Hash rate actualizado: {latest_hash_rate} TH/s")
         except Exception as e:
             print(f"Error al obtener hash rate: {e}")
         time.sleep(60)

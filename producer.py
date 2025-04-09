@@ -6,13 +6,18 @@ import requests
 from kafka import KafkaProducer
 from datetime import datetime
 import pytz
+from dotenv import load_dotenv
+import os
+
+# Cargar variables de entorno desde .env
+load_dotenv()
 
 # Configuración de zona horaria local
 local_timezone = pytz.timezone("Europe/Madrid")
 
-# Configuración del productor Kafka
+# Configura el productor Kafka con variables de entorno
 producer = KafkaProducer(
-    bootstrap_servers='localhost:9092',
+    bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP_SERVERS'),
     value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
 
@@ -22,7 +27,7 @@ latest_hash_rate = 0.0  # En EH/s
 websocket_connected = False
 latest_price_timestamp = None
 
-# Función para obtener el hash rate cada 60 segundos
+# Actualiza el hash rate cada 60 segundos desde Blockchain.info
 def update_hash_rate():
     global latest_hash_rate
     while True:
@@ -35,12 +40,12 @@ def update_hash_rate():
             print(f"Error al obtener hash rate: {e}")
         time.sleep(60)
 
-# Manejar mensajes del WebSocket de Binance
+# Maneja mensajes del WebSocket de Binance
 def on_message(ws, message):
     global latest_price, latest_price_timestamp
     try:
         data = json.loads(message)
-        price = float(data.get("c", latest_price))  # "c" es el precio de cierre en Binance
+        price = float(data.get("c", latest_price))
         if price != latest_price:
             latest_price = price
             latest_price_timestamp = datetime.now(local_timezone)
@@ -63,7 +68,7 @@ def on_open(ws):
     print("Conexión WebSocket abierta")
     websocket_connected = True
 
-# Función para manejar la conexión WebSocket con reconexión
+# Maneja la conexión WebSocket con reconexión automática
 def run_websocket():
     global websocket_connected
     while True:
@@ -79,13 +84,13 @@ def run_websocket():
                 ws_thread = threading.Thread(target=ws.run_forever)
                 ws_thread.daemon = True
                 ws_thread.start()
-                time.sleep(5)  # Esperar antes de reintentar si falla
+                time.sleep(5)
             except Exception as e:
                 print(f"Error al iniciar WebSocket: {e}")
                 time.sleep(5)
         time.sleep(1)
 
-# Enviar datos a Kafka cada segundo
+# Envía datos a Kafka cada segundo
 def send_to_kafka():
     global latest_price, latest_hash_rate
     while True:
@@ -95,15 +100,16 @@ def send_to_kafka():
             "price": latest_price,
             "hash_rate": latest_hash_rate
         }
-        producer.send('BitcoinData', message)
+        producer.send(os.getenv('KAFKA_TOPIC'), message)
         print(f"[{timestamp}] Enviado: {message}")
         time.sleep(1)
 
-# Iniciar hilos
+# Inicia hilos para WebSocket y hash rate
 websocket_thread = threading.Thread(target=run_websocket, daemon=True)
 websocket_thread.start()
 
 hash_rate_thread = threading.Thread(target=update_hash_rate, daemon=True)
 hash_rate_thread.start()
 
-send_to_kafka()  # Ejecutar en el hilo principal
+# Ejecuta el envío a Kafka en el hilo principal
+send_to_kafka()

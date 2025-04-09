@@ -1,104 +1,136 @@
 # Kafka Bitcoin Tracker
 
-![Estado del proyecto](https://img.shields.io/badge/Estado-En%20desarrollo-yellow)
+![Estado del proyecto](https://img.shields.io/badge/Estado-Completado-green)
 ![Versión](https://img.shields.io/badge/Versión-0.1.0-blue)
 ![Licencia](https://img.shields.io/badge/Licencia-MIT-green)
 
-## Descripción
-**Kafka Bitcoin Tracker** es un proyecto desarrollado como parte de la asignatura *Gestión de Datos* del Grado en Ingeniería Informática en la Facultad de Ciencias Sociales de Talavera de la Reina. Su objetivo es visualizar en tiempo real la evolución del precio de Bitcoin (en USD) y el hash rate de la red Bitcoin, utilizando Apache Kafka para transmitir datos y gráficos interactivos en Python para su representación.
 
-Esta versión inicial (`v0.1.0`) cumple con los requisitos básicos de la práctica, mostrando un gráfico de velas para el precio y una línea para el hash rate, pero aún está en desarrollo y no es una versión estable (1.0). Consulta las release notes de la version para mas información.
+Este proyecto es un dashboard en tiempo real que muestra el precio de Bitcoin (obtenido desde Binance vía WebSocket) y el hashrate de la red (desde Blockchain.info), utilizando Kafka como sistema de mensajería y Dash para la visualización. El sistema consta de un productor (`producer.py`) que envía datos a Kafka y un consumidor (`consumer.py`) que los lee y genera gráficos interactivos.
 
----
+## Requisitos previos
 
-## Características principales
-- **Transmisión en tiempo real**: Datos enviados y recibidos mediante Kafka cada segundo.
-- **Fuentes de datos**:
-  - Precio de Bitcoin: WebSocket de CoinCap (`wss://ws.coincap.io/prices?assets=bitcoin`).
-  - Hash rate: API REST de Blockchain.info (`https://api.blockchain.info/stats`), actualizado cada 60 segundos.
-- **Visualización**:
-  - Gráfico de velas para el precio de Bitcoin (Open, High, Low, Close) con intervalos de 1 minuto.
-  - Vela en formación actualizada en tiempo real con cada nuevo precio.
-  - Línea superpuesta para el hash rate en un eje Y secundario.
-- **Límite de datos**: Hasta 10,000 puntos (~166 horas con intervalos de 1 minuto).
-
----
-
-## Requisitos
-- **Sistema operativo**: Windows (probado), Linux o macOS (debería ser compatible con ajustes mínimos).
-- **Dependencias externas**:
-  - Apache Kafka y Zookeeper instalados (versión recomendada: 3.9.0).
-  - Python 3.7 o superior.
-- **Librerías de Python**: Ver `requirements.txt`.
-
----
-
-## Instalación
-
-### 1. Configurar Kafka
-1. Descarga Kafka desde [Apache Kafka Downloads](https://dlcdn.apache.org/kafka/3.9.0/kafka_2.13-3.9.0.tgz).
-2. Descomprime el archivo y navega al directorio.
-3. Inicia Zookeeper en una terminal:
-   ```bash
-   .\bin\windows\zookeeper-server-start.bat .\config\zookeeper.properties
-   ```
-4. Inicia el servidor Kafka en otra terminal:
-   ```bash
-   .\bin\windows\kafka-server-start.bat .\config\server.properties
-   ```
-5. Crea el topic `bitcoin_data`:
-   ```bash
-   .\bin\windows\kafka-topics.bat --create --topic bitcoin_data --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
-   ```
-
-### 2. Instalar dependencias de Python
-1. Clona este repositorio:
-   ```bash
-   git clone https://github.com/<tu-usuario>/kafka-bitcoin-tracker.git
-   cd kafka-bitcoin-tracker
-   ```
-2. Instala las librerías requeridas:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
----
-
-## Uso
-1. Asegúrate de que Zookeeper y Kafka estén corriendo.
-2. Ejecuta el productor en una terminal:
-   ```bash
-   python producer.py
-   
-3. Ejecuta el consumidor en otra terminal para visualizar los datos:
-   ```bash
-   python consumer.py
-   ```
-4. Observa el gráfico en tiempo real que muestra las velas de precio y la línea de hash rate.
-
----
+- **Python 3.8+**: Necesario para ejecutar los scripts.
+- **Kafka**: Instalado y configurado (descarga desde [Apache Kafka](https://kafka.apache.org/downloads)).
+- **Dependencias de Python**: Instálalas con:
+  ```
+  pip install -r requirements.txt
+  ```
+  Contenido sugerido para `requirements.txt`:
+  ```
+  websocket-client
+  requests
+  kafka-python
+  pandas
+  dash
+  plotly
+  python-dotenv
+  ```
 
 ## Estructura del proyecto
-- `producer.py`: Script que obtiene y envía datos a Kafka.
-- `consumer.py`: Script que lee datos de Kafka y genera la visualización.
-- `requirements.txt`: Lista de dependencias de Python.
-- `RELEASE_NOTES.md`: Notas de la versión actual.
 
----
+```
+Kafka-Bitcoin-Tracker/
+├── producer.py          # Script que produce datos de precio y hashrate
+├── consumer.py          # Script que consume datos y muestra el dashboard
+├── start_all.bat        # Script para Windows que inicia todos los servicios
+├── Makefile             # Script para Linux/Mac que inicia todos los servicios
+├── .env.template        # Archivo de configuración de variables de entorno
+├── LICENSE              # Licencia
+├── .gitignore           # Archivos ignorados
+└── README.md            # Este archivo
+```
 
-## Estado actual y limitaciones
-Este proyecto está en desarrollo (versión `0.1.0`). Algunas limitaciones incluyen:
-- El hash rate se actualiza cada 60 segundos, no en tiempo real completo.
-- Posible ralentización del gráfico con grandes volúmenes de datos.
-- Falta de manejo robusto de errores (por ejemplo, reconexión al WebSocket).
+## Configuración
 
----
+### 1. Configurar Kafka
+Descarga e instala Kafka desde [Apache Kafka](https://kafka.apache.org/downloads). Asegúrate de que Zookeeper y Kafka puedan ejecutarse desde el directorio especificado (por ejemplo, `./kafka`).
 
-## Licencia
-Este proyecto está bajo la [Licencia MIT](LICENSE).
+### 2. Configurar el archivo `.env`
+Cambia el nombre del archivo .env.template y elimina el ".template" en el directorio raíz del proyecto y modifica las variables segun tu configuracion
 
----
+- **`KAFKA_DIR`**: Ruta al directorio donde está instalado Kafka (por ejemplo, `.\kafka` o `C:\kafka`).
+- **`ZOOKEEPER_START` y `KAFKA_START`**: Ajusta según tu sistema operativo (`.bat` para Windows, `.sh` para Linux/Mac).
+- **`PRODUCER_PATH` y `CONSUMER_PATH`**: Rutas a los scripts Python, relativas al directorio del proyecto.
 
-## Créditos
-- Desarrollado por el equipo de *Gestión de Datos* con apoyo de **Grok 3**.
-- Basado en la práctica propuesta por **Ricardo Pérez del Castillo**.
+### 3. Instalar dependencias
+Ejecuta:
+```bash
+pip install -r requirements.txt
+```
+
+## Ejecución
+
+El proyecto incluye scripts para automatizar el inicio de Zookeeper, Kafka, el productor y el consumidor. Sigue las instrucciones según tu sistema operativo.
+
+### Windows (usando `start_all.bat`)
+
+1. Asegúrate de que el `.env` esté configurado correctamente.
+2. Ejecuta el script desde el directorio raíz del proyecto:
+   ```bash
+   ./start_all.bat
+   ```
+3. Esto abrirá cuatro ventanas:
+   - Zookeeper
+   - Kafka Server
+   - Producer
+   - Consumer (abre el dashboard en `http://127.0.0.1:8050/`)
+
+4. Para detener, cierra las ventanas manualmente o usa `Ctrl+C` en cada una.
+
+### Linux/Mac (usando `Makefile`)
+
+1. Asegúrate de que el `.env` esté configurado con las rutas correctas para Linux/Mac (`.sh` en lugar de `.bat`).
+2. Ejecuta:
+   ```bash
+   make start
+   ```
+3. Esto inicia todos los servicios en segundo plano:
+   - Zookeeper
+   - Kafka Server
+   - Producer
+   - Consumer (abre el dashboard en `http://127.0.0.1:8050/`)
+
+4. Para detener:
+   ```bash
+   make stop
+   ```
+
+#### Contenido del `Makefile`
+```makefile
+include .env
+
+start: zookeeper kafka producer consumer
+
+zookeeper:
+	$(ZOOKEEPER_START) $(ZOOKEEPER_CONFIG) &
+
+kafka:
+	$(KAFKA_START) $(KAFKA_CONFIG) &
+
+producer:
+	python $(PRODUCER_PATH) &
+
+consumer:
+	python $(CONSUMER_PATH) &
+
+stop:
+	pkill -f zookeeper
+	pkill -f kafka
+	pkill -f producer.py
+	pkill -f consumer.py
+```
+
+## Uso del dashboard
+
+- **Gráfico combinado**: Muestra el precio de Bitcoin (en USD) y el hashrate (en TH/s) en tiempo real.
+- **Gráfico de velas**: Muestra velas de 1 minuto (configurable en `CANDLE_INTERVAL`) con precios de apertura, máximo, mínimo y cierre. Las velas son verdes para movimientos alcistas y rojas para bajistas.
+- **Interactividad**: Usa el zoom, desplazamiento y la barra deslizante para explorar los datos.
+- **URL**: Abre `http://127.0.0.1:8050/` en tu navegador tras iniciar el consumidor.
+
+## Notas adicionales
+
+- **Errores comunes**:
+  - Si Kafka no inicia, verifica que `KAFKA_DIR` y las rutas en `.env` sean correctas.
+  - Asegúrate de que el puerto `9092` (o el configurado en `KAFKA_BOOTSTRAP_SERVERS`) esté libre.
+- **Personalización**: Modifica `CANDLE_INTERVAL` en `.env` para cambiar el intervalo de las velas (en segundos).
+- **Logs**: Los scripts imprimen mensajes en consola para monitorear precios, hashrate y envío de datos.

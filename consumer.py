@@ -14,6 +14,8 @@ consumer = KafkaConsumer(
     value_deserializer=lambda x: json.loads(x.decode('utf-8'))
 )
 
+
+
 # Buffer para datos (máximo 10,000 puntos)
 MAX_POINTS = 10000
 data_buffer = deque(maxlen=MAX_POINTS)
@@ -43,6 +45,15 @@ app.layout = html.Div(
             "Bitcoin Price & Hashrate Dashboard",
             style={'textAlign': 'center', 'color': '#ffffff'}
         ),
+        html.Div(
+            id='buffer-counter',
+            style={
+                'textAlign': 'center',
+                'color': '#ffffff',
+                'fontSize': '20px',
+                'marginBottom': '20px'
+            }
+        ),
         dcc.Graph(id='combined-graph'),
         dcc.Interval(
             id='interval-component',
@@ -52,16 +63,21 @@ app.layout = html.Div(
     ]
 )
 
-# Callback para actualizar el gráfico combinado
+# Callback para actualizar el gráfico y el contador
 @app.callback(
-    Output('combined-graph', 'figure'),
+    [Output('combined-graph', 'figure'),
+     Output('buffer-counter', 'children')],
     Input('interval-component', 'n_intervals')
 )
-def update_graph(n):
+def update_graph_and_counter(n):
     # Convertir buffer a DataFrame
     df = pd.DataFrame(list(data_buffer))
+    buffer_size = len(data_buffer)
 
-    # Si no hay datos, devolver gráfico vacío
+    # Actualizar el texto del contador
+    counter_text = f"Puntos en el buffer: {buffer_size}/{MAX_POINTS}"
+
+    # Si no hay datos, devolver gráfico vacío y contador inicial
     if df.empty:
         empty_fig = go.Figure()
         empty_fig.update_layout(
@@ -70,7 +86,7 @@ def update_graph(n):
             xaxis={'title': 'Tiempo'},
             yaxis={'title': 'Valor'}
         )
-        return empty_fig
+        return empty_fig, counter_text
 
     # Crear gráfico combinado
     fig = go.Figure()
@@ -124,8 +140,8 @@ def update_graph(n):
         margin=dict(l=50, r=50, t=50, b=50)
     )
 
-    return fig
+    return fig, counter_text
 
 # Ejecutar la aplicación
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)

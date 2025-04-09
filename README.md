@@ -1,7 +1,7 @@
 # Kafka Bitcoin Tracker
 
 ![Estado del proyecto](https://img.shields.io/badge/Estado-Completado-green)
-![Versión](https://img.shields.io/badge/Versión-0.1.0-blue)
+![Versión](https://img.shields.io/badge/Versión-1.0.0-blue)
 ![Licencia](https://img.shields.io/badge/Licencia-MIT-green)
 
 

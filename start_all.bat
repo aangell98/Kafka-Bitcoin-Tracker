@@ -22,7 +22,7 @@ if errorlevel 1 (
 :: Iniciar Zookeeper en una nueva ventana
 start "Zookeeper" cmd /k !ZOOKEEPER_START! !ZOOKEEPER_CONFIG!
 echo Iniciando Zookeeper...
-timeout /t 5 >nul
+timeout /t 20 >nul
 
 :: Iniciar Kafka Server en una nueva ventana
 start "Kafka Server" cmd /k !KAFKA_START! !KAFKA_CONFIG!

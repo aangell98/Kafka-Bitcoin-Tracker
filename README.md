@@ -7,6 +7,10 @@
 
 Este proyecto es un dashboard en tiempo real que muestra el precio de Bitcoin (obtenido desde Binance vía WebSocket) y el hashrate de la red (desde Blockchain.info), utilizando Kafka como sistema de mensajería y Dash para la visualización. El sistema consta de un productor (`producer.py`) que envía datos a Kafka y un consumidor (`consumer.py`) que los lee y genera gráficos interactivos.
 
+## Video resumen de funcionalidades de la APP
+
+https://pruebasaluuclm-my.sharepoint.com/:v:/r/personal/angelluis_lara_alu_uclm_es/Documents/Practica5.mp4?csf=1&web=1&e=auShDV&nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTdHJlYW1XZWJBcHAiLCJyZWZlcnJhbFZpZXciOiJTaGFyZURpYWxvZy1MaW5rIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXcifX0%3D
+
 ## Requisitos previos
 
 - **Python 3.8+**: Necesario para ejecutar los scripts.

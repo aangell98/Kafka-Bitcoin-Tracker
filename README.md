@@ -1,13 +1,13 @@
 # Kafka Bitcoin Tracker
 
-![Estado del proyecto](https://img.shields.io/badge/Estado-En%20desarrollo-yellow)
-![Versión](https://img.shields.io/badge/Versión-0.1.0-blue)
+![Estado del proyecto](https://img.shields.io/badge/Estado-Completado-green)
+![Versión](https://img.shields.io/badge/Versión-1.0.0-blue)
 ![Licencia](https://img.shields.io/badge/Licencia-MIT-green)
 
 ## Descripción
 **Kafka Bitcoin Tracker** es un proyecto desarrollado como parte de la asignatura *Gestión de Datos* del Grado en Ingeniería Informática en la Facultad de Ciencias Sociales de Talavera de la Reina. Su objetivo es visualizar en tiempo real la evolución del precio de Bitcoin (en USD) y el hash rate de la red Bitcoin, utilizando Apache Kafka para transmitir datos y gráficos interactivos en Python para su representación.
 
-Esta versión inicial (`v0.1.0`) cumple con los requisitos básicos de la práctica, mostrando un gráfico de velas para el precio y una línea para el hash rate, pero aún está en desarrollo y no es una versión estable (1.0). Consulta las release notes de la version para mas información
+Esta versión inicial (`v0.1.0`) cumple con los requisitos básicos de la práctica, mostrando un gráfico de velas para el precio y una línea para el hash rate, pero aún está en desarrollo y no es una versión estable (1.0). Consulta las release notes de la version para mas información.
 
 ---
 
@@ -36,23 +36,54 @@ Esta versión inicial (`v0.1.0`) cumple con los requisitos básicos de la práct
 ## Instalación
 
 ### 1. Configurar Kafka
-1. Descarga Kafka desde [Apache Kafka Downloads](https://dlcdn.apache.org/kafka/3.9.0/kafka_2.13-3.9.0.tgz).
-2. Descomprime el archivo y navega al directorio.
-3. Inicia Zookeeper en una terminal:
-   ```bash
-   .\bin\windows\zookeeper-server-start.bat .\config\zookeeper.properties
-   ```
-4. Inicia el servidor Kafka en otra terminal:
-   ```bash
-   .\bin\windows\kafka-server-start.bat .\config\server.properties
-   ```
-5. Crea el topic `bitcoin_data`:
-   ```bash
-   .\bin\windows\kafka-topics.bat --create --topic bitcoin_data --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
-   ```
+Descarga e instala Kafka desde [Apache Kafka](https://kafka.apache.org/downloads). Asegúrate de que Zookeeper y Kafka puedan ejecutarse desde el directorio especificado (por ejemplo, `./kafka`).
 
-### 2. Instalar dependencias de Python
-1. Clona este repositorio:
+### 2. Configurar el archivo `.env`
+Cambia el nombre del archivo .env.template y elimina el ".template" en el directorio raíz del proyecto y modifica las variables segun tu configuracion
+
+- **`KAFKA_DIR`**: Ruta al directorio donde está instalado Kafka (por ejemplo, `.\kafka` o `C:\kafka`).
+- **`ZOOKEEPER_START` y `KAFKA_START`**: Ajusta según tu sistema operativo (`.bat` para Windows, `.sh` para Linux/Mac).
+- **`PRODUCER_PATH` y `CONSUMER_PATH`**: Rutas a los scripts Python, relativas al directorio del proyecto.
+
+### 3. Instalar dependencias
+Ejecuta:
+```bash
+pip install -r requirements.txt
+```
+
+## Ejecución
+
+El proyecto incluye scripts para automatizar el inicio de Zookeeper, Kafka, el productor y el consumidor. Sigue las instrucciones según tu sistema operativo.
+
+### Windows (usando `start_all.bat`)
+
+1. Asegúrate de que el `.env` esté configurado correctamente.
+2. Ejecuta el script desde el directorio raíz del proyecto:
+   ```bash
+   ./start_all.bat
+   ```
+3. Esto abrirá cuatro ventanas:
+   - Zookeeper
+   - Kafka Server
+   - Producer
+   - Consumer (abre el dashboard en `http://127.0.0.1:8050/`)
+
+4. Para detener, cierra las ventanas manualmente o usa `Ctrl+C` en cada una.
+
+### Linux/Mac (usando `Makefile`)
+
+1. Asegúrate de que el `.env` esté configurado con las rutas correctas para Linux/Mac (`.sh` en lugar de `.bat`).
+2. Ejecuta:
+   ```bash
+   make start
+   ```
+3. Esto inicia todos los servicios en segundo plano:
+   - Zookeeper
+   - Kafka Server
+   - Producer
+   - Consumer (abre el dashboard en `http://127.0.0.1:8050/`)
+
+4. Para detener:
    ```bash
    git clone https://github.com/<tu-usuario>/kafka-bitcoin-tracker.git
    cd kafka-bitcoin-tracker
@@ -68,7 +99,9 @@ Esta versión inicial (`v0.1.0`) cumple con los requisitos básicos de la práct
 1. Asegúrate de que Zookeeper y Kafka estén corriendo.
 2. Ejecuta el productor en una terminal:
    ```bash
-   python producer.py
+   python producer.pyUnauthorized error (HTTP 401 Unauthorized)
+
+python producer.py
    ```
 3. Ejecuta el consumidor en otra terminal para visualizar los datos:
    ```bash

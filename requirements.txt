@@ -1,5 +1,8 @@
 kafka-python
+pandas
+dash
+plotly
 websocket-client
 requests
-matplotlib
-mplfinance
+pytz
+python-dotenv

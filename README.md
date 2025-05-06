@@ -7,7 +7,7 @@
 ## Descripción
 **Kafka Bitcoin Tracker** es un proyecto desarrollado como parte de la asignatura *Gestión de Datos* del Grado en Ingeniería Informática en la Facultad de Ciencias Sociales de Talavera de la Reina. Su objetivo es visualizar en tiempo real la evolución del precio de Bitcoin (en USD) y el hash rate de la red Bitcoin, utilizando Apache Kafka para transmitir datos y gráficos interactivos en Python para su representación.
 
-Esta versión inicial (`v0.1.0`) cumple con los requisitos básicos de la práctica, mostrando un gráfico de velas para el precio y una línea para el hash rate, pero aún está en desarrollo y no es una versión estable (1.0). Consulta las release notes de la version para mas información.
+Esta versión inicial (`v0.1.0`) cumple con los requisitos básicos de la práctica, mostrando un gráfico de velas para el precio y una línea para el hash rate, pero aún está en desarrollo y no es una versión estable (1.0). Consulta las release notes de la version para mas información
 
 ---
 
@@ -68,9 +68,7 @@ Esta versión inicial (`v0.1.0`) cumple con los requisitos básicos de la práct
 1. Asegúrate de que Zookeeper y Kafka estén corriendo.
 2. Ejecuta el productor en una terminal:
    ```bash
-   python producer.pyUnauthorized error (HTTP 401 Unauthorized)
-
-python producer.py
+   python producer.py
    ```
 3. Ejecuta el consumidor en otra terminal para visualizar los datos:
    ```bash

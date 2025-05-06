@@ -138,3 +138,4 @@ stop:
   - Asegúrate de que el puerto `9092` (o el configurado en `KAFKA_BOOTSTRAP_SERVERS`) esté libre.
 - **Personalización**: Modifica `CANDLE_INTERVAL` en `.env` para cambiar el intervalo de las velas (en segundos).
 - **Logs**: Los scripts imprimen mensajes en consola para monitorear precios, hashrate y envío de datos.
+  
